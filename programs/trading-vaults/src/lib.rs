@@ -11,17 +11,22 @@ pub mod trading_vaults {
         let vault = &mut ctx.accounts.vault;
         vault.owner = *ctx.accounts.owner.key;
         vault.balance = initial_balance;
+        vault.is_depositor = false;
         Ok(())
     }
 
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
         let vault = &mut ctx.accounts.vault;
         vault.balance += amount;
+        vault.is_depositor = true;
         Ok(())
     }
 
     pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> ProgramResult {
         let vault = &mut ctx.accounts.vault;
+        if !vault.is_depositor {
+            return Err(ProgramError::Custom(2)); // Not a depositor
+        }
         if vault.balance >= amount {
             vault.balance -= amount;
             Ok(())
@@ -33,7 +38,7 @@ pub mod trading_vaults {
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
-    #[account(init, payer = owner, space = 8 + 32 + 8)]
+    #[account(init, payer = owner, space = 8 + 32 + 8 + 1)]
     pub vault: Account<'info, Vault>,
     #[account(mut)]
     pub owner: Signer<'info>,
@@ -58,4 +63,5 @@ pub struct Withdraw<'info> {
 pub struct Vault {
     pub owner: Pubkey,
     pub balance: u64,
+    pub is_depositor: bool,
 }
