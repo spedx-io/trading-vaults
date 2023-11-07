@@ -37,7 +37,6 @@ pub mod trading_vaults {
     }
     pub fn initialize_trader_risk_group(
         ctx: Context<InitializeTraderRiskGroup>,
-        // You can include additional parameters if needed
     ) -> ProgramResult {
         let trg_account = &mut ctx.accounts.trader_risk_group;
     
@@ -63,14 +62,10 @@ pub struct TraderRiskGroup {
 }
 
 impl TraderRiskGroup {
-    // Assuming a constant size for the number of positions and orders for simplification
-    // Change the '100' and '50' to reflect the real anticipated maximums of your design
     pub const MAX_POSITIONS: usize = 100; 
     pub const MAX_OPEN_ORDERS: usize = 50;
 
     // Define the size of a Position, including any padding required by your specific data alignment needs
-    // This is a simplified example calculation. You might need to consider additional factors
-    // such as potential alignment padding between elements.
     pub const POSITION_SIZE: usize = 32 + 8 + 8; // Size of asset Pubkey + quantity + entry_price
 
     // Define the size of an OpenOrder similarly to Position
