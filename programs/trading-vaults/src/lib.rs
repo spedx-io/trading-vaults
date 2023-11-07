@@ -10,12 +10,23 @@ pub mod trading_vaults {
 
     pub fn initialize(ctx: Context<Initialize>, initial_balance: u64) -> ProgramResult {
         let vault = &mut ctx.accounts.vault;
+        let trg = &mut ctx.accounts.trader_risk_group;
+    
         vault.owner = *ctx.accounts.owner.key;
         vault.balance = initial_balance;
         vault.is_depositor = false;
+        vault.trader_risk_group = *trg.to_account_info().key; // Store TRG address in vault
+    
+        // Setup the TRG with appropriate default values or passed-in values
+        trg.owner = *ctx.accounts.owner.key;
+        trg.market_product_group = Pubkey::default();
+        trg.positions = Vec::new();
+        trg.open_orders = Vec::new();
+        trg.cash_deposits = 0;
+    
         Ok(())
     }
-
+    
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
         let vault = &mut ctx.accounts.vault;
         vault.balance += amount;
@@ -117,8 +128,10 @@ pub enum OrderState {
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
-    #[account(init, payer = owner, space = 8 + 32 + 8 + 1)]
+    #[account(init, payer = owner, space = Vault::LEN)] // Ensure space includes TRG pubkey size.
     pub vault: Account<'info, Vault>,
+    #[account(init, payer = owner, space = TraderRiskGroup::LEN)] // Allocate space for TRG.
+    pub trader_risk_group: Account<'info, TraderRiskGroup>,
     #[account(mut)]
     pub owner: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -153,5 +166,10 @@ pub struct Vault {
     pub owner: Pubkey,
     pub balance: u64,
     pub is_depositor: bool,
-    pub trader_risk_group: Pubkey, 
+    pub trader_risk_group: Pubkey, // Field to link to the TRG account
+}
+
+impl Vault {
+    // This calculation must be adjusted to add more fields to the struct
+    pub const LEN: usize = 8 + 32 + 8 + 1 + 32; // Add size for trader_risk_group pubkey
 }
