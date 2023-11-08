@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Transfer, TokenAccount, Token};
 use solana_program::entrypoint::ProgramResult;
 
 declare_id!("Eqs2vuTeCMLFhULBgh5f2TDuRCrYFecfgJxzUSGLRt21");
@@ -33,19 +34,81 @@ pub mod trading_vaults {
         vault.is_depositor = true;
         Ok(())
     }
-
+    #[derive(Accounts)]
+    pub struct Withdraw<'info> {
+        #[account(
+            mut,
+            has_one = owner,
+            // TODO: Add constraint to ensure that only the vault owner can initiate a withdrawal and that the withdrawal is to the TRG associated with this Vault.
+            close = owner // Only allow the vault to be closed by the owner, freeing space and recovering SOL
+        )]
+        pub vault: Account<'info, Vault>,
+        /// Include the TRG account to enforce withdrawals to this account only
+        #[account(
+            mut,
+            constraint = trader_risk_group.key() == vault.trader_risk_group @ ErrorCode::InvalidTraderRiskGroupKey,
+            constraint = trader_risk_group.owner == vault.owner @ ErrorCode::InvalidTraderRiskGroupOwner
+            // The above constraints enforce that the TRG passed in is the same as recorded in the vault and
+            // that the TRG owner matches the vault owner's public key.
+        )]
+        pub trader_risk_group: Account<'info, TraderRiskGroup>,
+        #[account(mut)]
+        pub owner: Signer<'info>,
+        // Add the system program to your Withdraw struct to handle account closure if necessary.
+        pub system_program: Program<'info, System>,
+        #[account(address = token::ID)]
+        pub token_program: Program<'info, Token>,
+    
+    }
+    
     pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> ProgramResult {
         let vault = &mut ctx.accounts.vault;
+        
+        // Check if the signer is a depositor with a sufficient balance
         if !vault.is_depositor {
-            return Err(ProgramError::Custom(2)); // Not a depositor
+            return Err(ProgramError::Custom(ErrorCode::NotADepositor as u32));
         }
-        if vault.balance >= amount {
-            vault.balance -= amount;
-            Ok(())
-        } else {
-            Err(ProgramError::Custom(1)) // Insufficient balance
+        if vault.balance < amount {
+            return Err(ProgramError::Custom(ErrorCode::InsufficientBalance as u32));
         }
+        
+        // Verify that the TRG linked with the vault matches the one provided in context
+        if ctx.accounts.trader_risk_group.key() != vault.trader_risk_group {
+            return Err(ProgramError::Custom(ErrorCode::InvalidTraderRiskGroupKey as u32));
+        }
+        
+        // Enforce the minimum balance rule for vault leaders
+        if vault.owner == *ctx.accounts.owner.key {
+            // Use `checked_sub` to prevent underflow and `checked_mul` to prevent potential overflow
+            let current_balance_minus_withdrawal = vault.balance.checked_sub(amount).ok_or(ProgramError::Custom(ErrorCode::MathError as u32))?;
+            let min_required_balance = vault.balance.checked_mul(10).ok_or(ProgramError::Custom(ErrorCode::MathError as u32))?.checked_div(100).ok_or(ProgramError::Custom(ErrorCode::MathError as u32))?;
+    
+            if current_balance_minus_withdrawal < min_required_balance {
+                return Err(ProgramError::Custom(ErrorCode::InsufficientRemainingBalance as u32));
+            }
+        }
+        
+        // Perform the token transfer via CPI
+        // This is a placeholder code to show where and how the transfer should be conducted
+        // You need to construct the accounts and signers for your specific token transfer, 
+        // replace "token::Transfer" with your actual token program's transfer instruction structure, 
+        // and use the correct "ctx.accounts" that refer to the token vault, receiver, and authority.
+        let cpi_accounts = Transfer {
+            from: vault.to_account_info(),
+            to: ctx.accounts.trader_risk_group.to_account_info(),
+            authority: ctx.accounts.owner.to_account_info(),
+        };
+        let cpi_program: AccountInfo<'_> = ctx.accounts.token_program.to_account_info();
+        let cpi_context = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
+        token::transfer(cpi_context, amount)?;
+    
+        // Update the vault balance
+        vault.balance = vault.balance.checked_sub(amount).ok_or(ProgramError::Custom(ErrorCode::MathError as u32))?;
+    
+        Ok(())
     }
+    
+                  
     pub fn initialize_trader_risk_group(
         ctx: Context<InitializeTraderRiskGroup>,
     ) -> ProgramResult {
@@ -154,11 +217,17 @@ pub struct Deposit<'info> {
     pub owner: Signer<'info>,
 }
 
-#[derive(Accounts)]
-pub struct Withdraw<'info> {
-    #[account(mut, has_one = owner)]
-    pub vault: Account<'info, Vault>,
-    pub owner: Signer<'info>,
+/// Custom error codes for the Trading Vaults program
+#[error_code]
+pub enum ErrorCode {
+    #[msg("The provided Trader Risk Group account key does not match the vault record.")]
+    InvalidTraderRiskGroupKey,
+    #[msg("The owner of the Trader Risk Group does not match the vault owner.")]
+    InvalidTraderRiskGroupOwner,
+    NotADepositor,
+    InsufficientBalance,
+    MathError,
+    InsufficientRemainingBalance,
 }
 
 #[account]
