@@ -1,6 +1,8 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Transfer, TokenAccount, Token};
 use solana_program::entrypoint::ProgramResult;
+pub mod vault;
+pub use vault::Vault;
 
 declare_id!("Eqs2vuTeCMLFhULBgh5f2TDuRCrYFecfgJxzUSGLRt21");
 
@@ -228,17 +230,4 @@ pub enum ErrorCode {
     InsufficientBalance,
     MathError,
     InsufficientRemainingBalance,
-}
-
-#[account]
-pub struct Vault {
-    pub owner: Pubkey,
-    pub balance: u64,
-    pub is_depositor: bool,
-    pub trader_risk_group: Pubkey, // Field to link to the TRG account
-}
-
-impl Vault {
-    // This calculation must be adjusted to add more fields to the struct
-    pub const LEN: usize = 8 + 32 + 8 + 1 + 32; // Add size for trader_risk_group pubkey
 }
