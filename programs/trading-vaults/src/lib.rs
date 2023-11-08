@@ -2,6 +2,8 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Transfer, TokenAccount, Token};
 use solana_program::entrypoint::ProgramResult;
 pub mod vault;
+pub mod error;
+pub use error::ErrorCode;
 pub use vault::Vault;
 
 declare_id!("Eqs2vuTeCMLFhULBgh5f2TDuRCrYFecfgJxzUSGLRt21");
@@ -217,17 +219,4 @@ pub struct Deposit<'info> {
     #[account(mut, has_one = owner)]
     pub vault: Account<'info, Vault>,
     pub owner: Signer<'info>,
-}
-
-/// Custom error codes for the Trading Vaults program
-#[error_code]
-pub enum ErrorCode {
-    #[msg("The provided Trader Risk Group account key does not match the vault record.")]
-    InvalidTraderRiskGroupKey,
-    #[msg("The owner of the Trader Risk Group does not match the vault owner.")]
-    InvalidTraderRiskGroupOwner,
-    NotADepositor,
-    InsufficientBalance,
-    MathError,
-    InsufficientRemainingBalance,
 }
