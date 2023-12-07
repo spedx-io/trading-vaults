@@ -94,7 +94,7 @@ pub mod trading_vaults {
             to: ctx.accounts.trader_risk_group.to_account_info(),
             authority: ctx.accounts.owner.to_account_info(),
         };
-        let cpi_program: AccountInfo<'_> = ctx.accounts.token_program.to_account_info();
+        // let cpi_program: AccountInfo<'_> = ctx.accounts.token_program.to_account_info();
         let cpi_context = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
         token::transfer(cpi_context, amount)?;
     
