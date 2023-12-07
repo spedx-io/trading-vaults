@@ -1,6 +1,4 @@
 use anchor_lang::prelude::*;
-// use anchor_spl::token::{self, Transfer, TokenAccount, Token};
-// use solana_program::entrypoint::ProgramResult;
 pub mod vault;
 pub mod instructions;
 pub mod trader_risk_group;
