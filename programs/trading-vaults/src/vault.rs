@@ -46,7 +46,7 @@ impl Vault {
             pending_vault_withdrawals: 0,
             vault_manager,
             no_of_depositors: 0,
-            aum: 0, // Assuming you replaced I80F48 with u64
+            aum: 0, 
             performance_fee_pct: 0,
             performance_fee_growth: 0,
             min_investment_amt: 0,
