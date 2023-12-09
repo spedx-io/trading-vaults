@@ -9,12 +9,13 @@ pub mod trading_vaults {
     use super::*;
     use std::str::FromStr;
 
+    // TODO: AFTER THE VAULT DATA STRUCTURE HAS BEEN CHANGED, APPLY THE CHANGES HERE
     pub fn initialize(ctx: Context<Initialize>, initial_balance: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         let trg: &mut Account<'_, TraderRiskGroup> = &mut ctx.accounts.trader_risk_group;
 
         vault.owner = *ctx.accounts.owner.key;
-        vault.balance = initial_balance; // this is the amount that the vault owner seeds the vault with initially to begin
+        vault.balance = initial_balance; // TODO: ADD FUNCTIONS FOR THE VAULT OWNER TO ADD INITIAL BALANCE TO VAULT
         vault.is_depositor = false;
         vault.trader_risk_group = *trg.to_account_info().key; // Store TRG address in vault
 
@@ -28,6 +29,8 @@ pub mod trading_vaults {
         Ok(())
     }
 
+    // TODO: DEPOSIT FUNCTION IS NOT PROPER. NO SPL TOKEN TRANSFERS ARE BEING MADE. RE-WRITE FUNCTION TO PERFORM TRANSFER BETWEEN DEPOSITOR ACCOUNT TO THE VAULT SMART CONTRACT
+    // TODO: AFTER THE VAULT STRUCTURE HAS BEEN CHANGED, APPLY CHANGES HERE. FOR EG: ENFORCE THE MIN_REQUIRED_DEPOSIT CONSTRAINT AND VAULT LEADER SHARE.
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         vault.balance += amount;
@@ -60,6 +63,8 @@ pub mod trading_vaults {
         pub token_program: Program<'info, Token>,
     }
 
+    // TODO: WITHDRAW FUNCTION IS NOT PROPER. FOR NOW ONLY IMPLEMENT FEATURE FOR DEPOSITORS TO WITHDRAW FROM VAULT, NOT VAULT LEADER TO WITHDRAW FROM VAULT TO TRG, THAT WILL BE
+    // TODO: A DIFFERENT FUNCTION. ALSO MAKE CHANGES IN ACCORDANCE WITH CHANGES IN VAULT DATA STRUCTURE
     pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
 
