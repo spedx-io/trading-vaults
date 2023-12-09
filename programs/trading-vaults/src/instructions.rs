@@ -1,32 +1,32 @@
-use anchor_lang::prelude::*;
-use crate::{Vault, TraderRiskGroup};
-use anchor_spl::token::{self, Transfer, Token};
 use crate::error::ErrorCode;
+use crate::investor::Investor;
 use crate::trader_risk_group::InitializeTraderRiskGroup;
+use crate::{TraderRiskGroup, Vault};
+use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Token, Transfer};
 
 pub mod trading_vaults {
-    use std::str::FromStr;
     use super::*;
+    use std::str::FromStr;
 
     pub fn initialize(ctx: Context<Initialize>, initial_balance: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
-        let trg = &mut ctx.accounts.trader_risk_group;
-    
+        let trg: &mut Account<'_, TraderRiskGroup> = &mut ctx.accounts.trader_risk_group;
+
         vault.owner = *ctx.accounts.owner.key;
-        vault.balance = initial_balance;
+        vault.balance = initial_balance; // this is the amount that the vault owner seeds the vault with initially to begin
         vault.is_depositor = false;
         vault.trader_risk_group = *trg.to_account_info().key; // Store TRG address in vault
-    
+
         // Setup the TRG with appropriate default values or passed-in values
         trg.owner = *ctx.accounts.owner.key;
         trg.market_product_group = Pubkey::default();
         trg.positions = Vec::new();
         trg.open_orders = Vec::new();
         trg.cash_deposits = 0;
-    
+
         Ok(())
     }
-    
 
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
@@ -58,12 +58,11 @@ pub mod trading_vaults {
         pub system_program: Program<'info, System>,
         #[account(address = token::ID)]
         pub token_program: Program<'info, Token>,
-    
     }
-    
+
     pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
-        
+
         // Check if the signer is a depositor with a sufficient balance
         if !vault.is_depositor {
             return Err(ErrorCode::NotADepositor.into()); // Convert ErrorCode into the Error type
@@ -71,23 +70,31 @@ pub mod trading_vaults {
         if vault.balance < amount {
             return Err(ErrorCode::InsufficientBalance.into()); // Convert ErrorCode into the Error type
         }
-                
+
         // Verify that the TRG linked with the vault matches the one provided in context
         if ctx.accounts.trader_risk_group.key() != vault.trader_risk_group {
             return Err(ErrorCode::InvalidTraderRiskGroupKey.into());
         }
-                
+
         // Enforce the minimum balance rule for vault leaders
         if vault.owner == *ctx.accounts.owner.key {
             // Use `checked_sub` to prevent underflow and `checked_mul` to prevent potential overflow
-            let current_balance_minus_withdrawal = vault.balance.checked_sub(amount).ok_or(ProgramError::Custom(ErrorCode::MathError as u32))?;
-            let min_required_balance = vault.balance.checked_mul(10).ok_or(ProgramError::Custom(ErrorCode::MathError as u32))?.checked_div(100).ok_or(ProgramError::Custom(ErrorCode::MathError as u32))?;
-    
+            let current_balance_minus_withdrawal = vault
+                .balance
+                .checked_sub(amount)
+                .ok_or(ProgramError::Custom(ErrorCode::MathError as u32))?;
+            let min_required_balance = vault
+                .balance
+                .checked_mul(10)
+                .ok_or(ProgramError::Custom(ErrorCode::MathError as u32))?
+                .checked_div(100)
+                .ok_or(ProgramError::Custom(ErrorCode::MathError as u32))?;
+
             if current_balance_minus_withdrawal < min_required_balance {
                 return Err(ErrorCode::InsufficientRemainingBalance.into());
             }
         }
-        
+
         // TODO: Perform the token transfer via CPI
         let cpi_accounts = Transfer {
             from: vault.to_account_info(),
@@ -95,30 +102,32 @@ pub mod trading_vaults {
             authority: ctx.accounts.owner.to_account_info(),
         };
         // let cpi_program: AccountInfo<'_> = ctx.accounts.token_program.to_account_info();
-        let cpi_context = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
+        let cpi_context =
+            CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
         token::transfer(cpi_context, amount)?;
-    
+
         // Update the vault balance
-        vault.balance = vault.balance.checked_sub(amount).ok_or(ProgramError::Custom(ErrorCode::MathError as u32))?;
-    
+        vault.balance = vault
+            .balance
+            .checked_sub(amount)
+            .ok_or(ProgramError::Custom(ErrorCode::MathError as u32))?;
+
         Ok(())
     }
-    
-                  
-    pub fn initialize_trader_risk_group(
-        ctx: Context<InitializeTraderRiskGroup>,
-    ) -> Result<()> {
+
+    pub fn initialize_trader_risk_group(ctx: Context<InitializeTraderRiskGroup>) -> Result<()> {
         let trg_account = &mut ctx.accounts.trader_risk_group;
-    
+
         // Initialize the account with default or provided values
         trg_account.owner = *ctx.accounts.user.key; // Owner's pubkey
-        trg_account.market_product_group = Pubkey::from_str("FUfpR31LmcP1VSbz5zDaM7nxnH55iBHkpwusgrnhaFjL").unwrap();
+        trg_account.market_product_group =
+            Pubkey::from_str("FUfpR31LmcP1VSbz5zDaM7nxnH55iBHkpwusgrnhaFjL").unwrap();
         trg_account.positions = Vec::new(); // Start with an empty vector for positions
         trg_account.open_orders = Vec::new(); // Start with an empty vector for orders
         trg_account.cash_deposits = 0; // Start with zero cash deposits
-        
+
         Ok(())
-    }    
+    }
 }
 
 #[derive(Accounts)]
