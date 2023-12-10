@@ -1,5 +1,5 @@
 use crate::error::ErrorCode;
-use crate::investor::Investor;
+// use crate::investor::Investor;
 use crate::trader_risk_group::InitializeTraderRiskGroup;
 use crate::{TraderRiskGroup, Vault};
 use anchor_lang::prelude::*;
@@ -16,7 +16,6 @@ pub mod trading_vaults {
 
         vault.owner = *ctx.accounts.owner.key;
         vault.balance = initial_balance; // TODO: ADD FUNCTIONS FOR THE VAULT OWNER TO ADD INITIAL BALANCE TO VAULT
-        vault.is_depositor = false;
         vault.trader_risk_group = *trg.to_account_info().key; // Store TRG address in vault
 
         // Setup the TRG with appropriate default values or passed-in values
@@ -34,7 +33,6 @@ pub mod trading_vaults {
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         vault.balance += amount;
-        vault.is_depositor = true;
         Ok(())
     }
     #[derive(Accounts)]
@@ -69,9 +67,6 @@ pub mod trading_vaults {
         let vault = &mut ctx.accounts.vault;
 
         // Check if the signer is a depositor with a sufficient balance
-        if !vault.is_depositor {
-            return Err(ErrorCode::NotADepositor.into()); // Convert ErrorCode into the Error type
-        }
         if vault.balance < amount {
             return Err(ErrorCode::InsufficientBalance.into()); // Convert ErrorCode into the Error type
         }
