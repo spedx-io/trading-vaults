@@ -8,7 +8,6 @@ type I80F48 = u64; // Can't find I80F48 :(
 pub struct Vault {
     pub owner: Pubkey,                    // Owner of the vault
     pub balance: u64,                     // Balance of the vault
-    pub is_depositor: bool,               // Indicates if the vault is a depositor
     pub trader_risk_group: Pubkey,        // Key of the associated Trader Risk Group
     pub is_vault_initialized: bool,       // Is the trading vault initialized
     pub is_vault_paused: bool,            // Is the trading vault paused from accepting deposits
@@ -36,13 +35,11 @@ impl Vault {
         trg: TraderRiskGroup,
         owner: Pubkey,
         balance: u64,
-        is_depositor: bool,
         trader_risk_group: Pubkey,
     ) -> Self {
         Self {
             owner,
             balance,
-            is_depositor,
             trader_risk_group,
             is_vault_initialized: false,
             is_vault_paused: false,
@@ -67,7 +64,7 @@ impl Vault {
     // Update the LEN constant as per the new struct size
     pub const LEN: usize = 8 // Discriminator
     + size_of::<Pubkey>() * 4 // For `owner`, `trader_risk_group`, `vault_manager`, `vault_token_account`
-    + size_of::<bool>() * 3 // For `is_depositor`, `is_vault_initialized`, `is_vault_paused`, `is_vault_settled`
+    + size_of::<bool>() * 3 // For ``, `is_vault_initialized`, `is_vault_paused`, `is_vault_settled`
     + size_of::<u64>() * 5 // For `balance`, `pending_vault_deposits`, `pending_vault_withdrawals`, `no_of_depositors`, `min_investment_amt`
     + size_of::<I80F48>() * 5; // For `aum`, `performance_fee_pct`, `performance_fee_growth`, `vault_owner_pct`, `vault_owner_share`, `vault_owner_share_pct`
 }
