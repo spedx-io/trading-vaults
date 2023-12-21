@@ -1,5 +1,6 @@
 use crate::investment_status::InvestmentStatus;
 use anchor_lang::prelude::*;
+
 #[account]
 pub struct Investor {
     pub is_initialized: bool, // Indicates whether the investor account is initialized
@@ -22,4 +23,10 @@ impl Investor {
             vault,
         }
     }
+
+    // Method to update the investment amount
+    pub fn update_investment_amount(&mut self, additional_amount: u64) {
+        self.amount += additional_amount;
+    }
+
 }

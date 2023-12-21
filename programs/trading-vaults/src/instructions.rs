@@ -1,5 +1,6 @@
 use crate::error::ErrorCode;
-// use crate::investor::Investor;
+use crate::investor::Investor;
+use crate::investment_status::InvestmentStatus;
 use crate::trader_risk_group::InitializeTraderRiskGroup;
 use crate::{TraderRiskGroup, Vault};
 use anchor_lang::prelude::*;
@@ -28,7 +29,27 @@ pub mod trading_vaults {
 
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
-        vault.balance += amount;
+        let investor = &mut ctx.accounts.investor;
+
+        let new_total_deposit = vault.total_deposits + amount;
+        let vault_manager_share = (vault.manager_deposits as f64 / new_total_deposit as f64) * 100.0;
+
+        // Calculate the new total deposit amount including this deposit
+        let new_total_deposit = vault.total_deposits + amount;
+
+        // Calculate the vault manager's share after this deposit
+        let vault_manager_share: f64 = (vault.manager_deposits as f64 / new_total_deposit as f64) * 100.0;
+
+        if vault_manager_share < 10.0 {
+            // If the deposit shoves the vault manager's share below 10%, void the deposit
+            investor.investment_status = InvestmentStatus::VoidedDeposit;
+        } else {
+            // Accept the deposit
+            vault.total_deposits = new_total_deposit;
+            investor.amount += amount;
+            investor.investment_status = InvestmentStatus::ActiveDeposit;
+        }
+
         Ok(())
     }
 
@@ -119,7 +140,10 @@ pub struct Initialize<'info> {
 
 #[derive(Accounts)]
 pub struct Deposit<'info> {
-    #[account(mut, has_one = owner)]
+    #[account(mut)]
     pub vault: Account<'info, Vault>,
+    #[account(mut)]
+    pub investor: Account<'info, Investor>,
+    #[account(mut)]
     pub owner: Signer<'info>,
 }
