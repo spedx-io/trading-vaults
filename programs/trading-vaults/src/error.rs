@@ -15,4 +15,6 @@ pub enum ErrorCode {
     InsufficientBalance,
     MathError,
     InsufficientRemainingBalance,
+    #[msg("The deposit reduces the vault manager's share below the minimum threshold.")]
+    VaultManagerShareTooLow,
 }

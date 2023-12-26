@@ -30,25 +30,27 @@ pub mod trading_vaults {
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         let investor = &mut ctx.accounts.investor;
-
+    
         // Calculate the new total deposit amount including this deposit
-        let new_total_deposit = vault.total_deposits + amount;
-
+        let new_total_deposit = vault.total_deposits.checked_add(amount).ok_or(ErrorCode::MathError)?;
+    
         // Calculate the vault manager's share after this deposit
-        let vault_manager_share: f64 = (vault.manager_deposits as f64 / new_total_deposit as f64) * 100.0;
-
-        if vault_manager_share < 10.0 {
-            // If the deposit shoves the vault manager's share below 10%, void the deposit
+        let vault_manager_share = vault.manager_deposits as f64 / new_total_deposit as f64;
+    
+        if vault_manager_share < 0.10 {
+            // If the deposit reduces the vault manager's share below 10%, void the deposit
             investor.investment_status = InvestmentStatus::VoidedDeposit;
+            return Err(ErrorCode::VaultManagerShareTooLow.into());
         } else {
             // Accept the deposit
             vault.total_deposits = new_total_deposit;
-            investor.amount += amount;
+            investor.amount = investor.amount.checked_add(amount).ok_or(ErrorCode::MathError)?;
             investor.investment_status = InvestmentStatus::ActiveDeposit;
         }
-
+    
         Ok(())
     }
+    
 
     pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
