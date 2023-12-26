@@ -53,37 +53,35 @@ pub mod trading_vaults {
     pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         let investor = &mut ctx.accounts.investor;
-
+    
+        // Check if the user is a depositor and has deposited enough
         if investor.amount < amount {
             return Err(ErrorCode::InvalidWithdrawalAmount.into());
         }
-
+    
+        // Check if the vault has enough balance for the withdrawal
         if vault.balance < amount {
             investor.investment_status = InvestmentStatus::PendingWithdraw;
             return Err(ErrorCode::InsufficientVaultLiquidity.into());
         }
-
+    
+        // Process the withdrawal
         let cpi_accounts = Transfer {
             from: vault.to_account_info(),
-            to: ctx.accounts.owner.to_account_info(),
+            to: investor.to_account_info(),
             authority: ctx.accounts.owner.to_account_info(),
         };
         let cpi_context = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
         token::transfer(cpi_context, amount)?;
-
-        vault.balance = vault
-            .balance
-            .checked_sub(amount)
-            .ok_or(ProgramError::Custom(ErrorCode::MathError as u32))?;
-        investor.amount = investor
-            .amount
-            .checked_sub(amount)
-            .ok_or(ProgramError::Custom(ErrorCode::MathError as u32))?;
+    
+        // Update balances and statuses
+        vault.balance = vault.balance.checked_sub(amount).ok_or(ErrorCode::MathError)?;
+        investor.amount = investor.amount.checked_sub(amount).ok_or(ErrorCode::MathError)?;
         investor.investment_status = InvestmentStatus::Claimable;
-
+    
         Ok(())
     }
-
+    
     pub fn initialize_trader_risk_group(ctx: Context<InitializeTraderRiskGroup>) -> Result<()> {
         let trg_account = &mut ctx.accounts.trader_risk_group;
 
