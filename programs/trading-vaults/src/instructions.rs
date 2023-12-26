@@ -31,9 +31,6 @@ pub mod trading_vaults {
         let vault = &mut ctx.accounts.vault;
         let investor = &mut ctx.accounts.investor;
 
-        let new_total_deposit = vault.total_deposits + amount;
-        let vault_manager_share = (vault.manager_deposits as f64 / new_total_deposit as f64) * 100.0;
-
         // Calculate the new total deposit amount including this deposit
         let new_total_deposit = vault.total_deposits + amount;
 
@@ -53,62 +50,36 @@ pub mod trading_vaults {
         Ok(())
     }
 
-    #[derive(Accounts)]
-    pub struct Withdraw<'info> {
-        #[account(
-            mut,
-            has_one = owner,
-            // REVIEW: Add constraint for investor if used
-            // constraint = investor.pubkey() == vault.investor_pubkey @ ErrorCode::InvalidInvestor
-        )]
-        pub vault: Account<'info, Vault>,
-        //REVIEW: Uncomment if Investor struct is used
-        // #[account(mut)]
-        // pub investor: Account<'info, Investor>,
-        #[account(
-            mut,
-            constraint = trader_risk_group.key() == vault.trader_risk_group @ ErrorCode::InvalidTraderRiskGroupKey,
-            constraint = trader_risk_group.owner == vault.owner @ ErrorCode::InvalidTraderRiskGroupOwner
-        )]
-        pub trader_risk_group: Account<'info, TraderRiskGroup>,
-        #[account(mut)]
-        pub owner: Signer<'info>,
-        pub system_program: Program<'info, System>,
-        #[account(address = token::ID)]
-        pub token_program: Program<'info, Token>,
-    }
-
     pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
-        //REVIEW: Uncomment and modify if Investor struct is used
-        // let investor = &mut ctx.accounts.investor;
+        let investor = &mut ctx.accounts.investor;
 
-        if vault.balance < amount {
-            return Err(ErrorCode::InsufficientBalance.into());
+        if investor.amount < amount {
+            return Err(ErrorCode::InvalidWithdrawalAmount.into());
         }
 
-        if ctx.accounts.trader_risk_group.key() != vault.trader_risk_group {
-            return Err(ErrorCode::InvalidTraderRiskGroupKey.into());
+        if vault.balance < amount {
+            investor.investment_status = InvestmentStatus::PendingWithdraw;
+            return Err(ErrorCode::InsufficientVaultLiquidity.into());
         }
 
         let cpi_accounts = Transfer {
             from: vault.to_account_info(),
-            to: ctx.accounts.trader_risk_group.to_account_info(),
+            to: ctx.accounts.owner.to_account_info(),
             authority: ctx.accounts.owner.to_account_info(),
         };
-        let cpi_context =
-            CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
+        let cpi_context = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
         token::transfer(cpi_context, amount)?;
 
         vault.balance = vault
             .balance
             .checked_sub(amount)
             .ok_or(ProgramError::Custom(ErrorCode::MathError as u32))?;
-
-        //REVIEW: Add investor balance update and transaction record if Investor struct is used
-        // investor.balance = investor.balance.checked_sub(amount)
-        //     .ok_or(ProgramError::Custom(ErrorCode::MathError as u32))?;
-        // record_transaction(investor, amount, TransactionType::Withdrawal)?;
+        investor.amount = investor
+            .amount
+            .checked_sub(amount)
+            .ok_or(ProgramError::Custom(ErrorCode::MathError as u32))?;
+        investor.investment_status = InvestmentStatus::Claimable;
 
         Ok(())
     }
@@ -146,4 +117,19 @@ pub struct Deposit<'info> {
     pub investor: Account<'info, Investor>,
     #[account(mut)]
     pub owner: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct Withdraw<'info> {
+    #[account(mut)]
+    pub vault: Account<'info, Vault>,
+    #[account(mut)]
+    pub investor: Account<'info, Investor>,
+    #[account(mut)]
+    pub owner: Signer<'info>,
+    #[account(mut)]
+    pub trader_risk_group: Account<'info, TraderRiskGroup>,
+    pub system_program: Program<'info, System>,
+    #[account(address = token::ID)]
+    pub token_program: Program<'info, Token>,
 }
