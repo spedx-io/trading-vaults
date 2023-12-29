@@ -19,6 +19,8 @@ pub struct Vault {
     pub performance_fee_pct: I80F48,      // The percentage charged by the vault owner from the profits made
     pub performance_fee_growth: I80F48,   // Total amount of percentage fee accumulated
     pub min_investment_amt: u64,          // Minimum amount of investment required into a vault
+    pub total_deposits: u64,      // Total deposits in the vault
+    pub manager_deposits: u64,    // Deposits made by the vault manager
     pub vault_token_account: Pubkey,      // Account for the vault's token
     pub vault_owner_pct: I80F48,          // Percentage share of the vault owner in the vault
     pub vault_owner_share: I80F48,        // Share of the vault owner in the vault in $ terms
@@ -57,14 +59,16 @@ impl Vault {
             // vault_force_settle_info: ForceSettleInfo { /* Initialize fields */ },
             trg,
             is_vault_settled: false, // Initializing new field
-            vault_owner_share_pct: 0, // Initializing new field
+            vault_owner_share_pct: 0,
+            total_deposits: 0,
+            manager_deposits: 0, // Initializing new field
         }
     }
 
-    // Update the LEN constant as per the new struct size
+    //REVIEW: Update the LEN constant as per the new struct size
     pub const LEN: usize = 8 // Discriminator
-    + size_of::<Pubkey>() * 4 // For `owner`, `trader_risk_group`, `vault_manager`, `vault_token_account`
-    + size_of::<bool>() * 3 // For ``, `is_vault_initialized`, `is_vault_paused`, `is_vault_settled`
-    + size_of::<u64>() * 5 // For `balance`, `pending_vault_deposits`, `pending_vault_withdrawals`, `no_of_depositors`, `min_investment_amt`
-    + size_of::<I80F48>() * 5; // For `aum`, `performance_fee_pct`, `performance_fee_growth`, `vault_owner_pct`, `vault_owner_share`, `vault_owner_share_pct`
+    + size_of::<Pubkey>() * 4 // `owner`, `trader_risk_group`, `vault_manager`, `vault_token_account`
+    + size_of::<bool>() * 3 // `is_vault_initialized`, `is_vault_paused`, `is_vault_settled`
+    + size_of::<u64>() * 7 // `balance`, `pending_vault_deposits`, `pending_vault_withdrawals`, `no_of_depositors`, `min_investment_amt`, `total_deposits`, `manager_deposits`
+    + size_of::<I80F48>() * 5; // `aum`, `performance_fee_pct`, `performance_fee_growth`, `vault_owner_pct`, `vault_owner_share`, `vault_owner_share_pct`
 }
