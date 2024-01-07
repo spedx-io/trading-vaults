@@ -22,6 +22,7 @@ impl Investor {
             returns: 0,
             owner,
             vault,
+            fund_pubkey: vault,
         }
     }
 
