@@ -1,6 +1,6 @@
 use crate::error::ErrorCode;
-use crate::investor::Investor;
 use crate::investment_status::InvestmentStatus;
+use crate::investor::Investor;
 use crate::trader_risk_group::InitializeTraderRiskGroup;
 use crate::{TraderRiskGroup, Vault};
 use anchor_lang::prelude::*;
@@ -30,13 +30,21 @@ pub mod trading_vaults {
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         let investor = &mut ctx.accounts.investor;
-    
+
+        // Ensure the investor is depositing into the correct vault
+        if investor.fund_pubkey != vault.to_account_info().key() {
+            return Err(ErrorCode::InvalidVault.into());
+        }
+
         // Calculate the new total deposit amount including this deposit
-        let new_total_deposit = vault.total_deposits.checked_add(amount).ok_or(ErrorCode::MathError)?;
-    
+        let new_total_deposit = vault
+            .total_deposits
+            .checked_add(amount)
+            .ok_or(ErrorCode::MathError)?;
+
         // Calculate the vault manager's share after this deposit
         let vault_manager_share = vault.manager_deposits as f64 / new_total_deposit as f64;
-    
+
         if vault_manager_share < 0.10 {
             // If the deposit reduces the vault manager's share below 10%, void the deposit
             investor.investment_status = InvestmentStatus::VoidedDeposit;
@@ -48,50 +56,66 @@ pub mod trading_vaults {
                 to: vault.to_account_info(),
                 authority: ctx.accounts.owner.to_account_info(),
             };
-            let cpi_context = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
+            let cpi_context =
+                CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
             token::transfer(cpi_context, amount)?;
-    
+
             // Accept the deposit
             vault.total_deposits = new_total_deposit;
-            investor.amount = investor.amount.checked_add(amount).ok_or(ErrorCode::MathError)?;
+            investor.amount = investor
+                .amount
+                .checked_add(amount)
+                .ok_or(ErrorCode::MathError)?;
             investor.investment_status = InvestmentStatus::ActiveDeposit;
         }
-    
+
         Ok(())
-    }        
+    }
 
     pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         let investor = &mut ctx.accounts.investor;
-    
+
+        // Ensure the investor is withdrawing from the correct vault
+        if investor.fund_pubkey != vault.to_account_info().key() {
+            return Err(ErrorCode::InvalidVault.into());
+        }
+
         // Check if the user is a depositor and has deposited enough
         if investor.amount < amount {
             return Err(ErrorCode::InvalidWithdrawalAmount.into());
         }
-    
+
         // Check if the vault has enough balance for the withdrawal
         if vault.balance < amount {
             investor.investment_status = InvestmentStatus::PendingWithdraw;
             return Err(ErrorCode::InsufficientVaultLiquidity.into());
         }
-    
+
         // Process the withdrawal
         let cpi_accounts = Transfer {
             from: vault.to_account_info(),
             to: investor.to_account_info(),
             authority: ctx.accounts.owner.to_account_info(),
         };
-        let cpi_context = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
+        let cpi_context =
+            CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
         token::transfer(cpi_context, amount)?;
-    
+
         // Update balances and statuses
-        vault.balance = vault.balance.checked_sub(amount).ok_or(ErrorCode::MathError)?;
-        investor.amount = investor.amount.checked_sub(amount).ok_or(ErrorCode::MathError)?;
+        vault.balance = vault
+            .balance
+            .checked_sub(amount)
+            .ok_or(ErrorCode::MathError)?;
+        investor.amount = investor
+            .amount
+            .checked_sub(amount)
+            .ok_or(ErrorCode::MathError)?;
         investor.investment_status = InvestmentStatus::Claimable;
-    
+
         Ok(())
     }
-    
+
     pub fn initialize_trader_risk_group(ctx: Context<InitializeTraderRiskGroup>) -> Result<()> {
         let trg_account = &mut ctx.accounts.trader_risk_group;
 
