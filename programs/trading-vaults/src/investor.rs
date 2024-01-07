@@ -9,6 +9,7 @@ pub struct Investor {
     pub returns: u64,         // Returns from the investment
     pub owner: Pubkey,        // Public key of the investor
     pub vault: Pubkey,        // Public key of the vault associated with this investment
+    pub fund_pubkey: Pubkey, // The public key of the associated vault
 }
 
 impl Investor {
