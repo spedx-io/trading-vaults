@@ -7,8 +7,16 @@ pub enum ErrorCode {
     #[msg("The owner of the Trader Risk Group does not match the vault owner.")]
     InvalidTraderRiskGroupOwner,
     NotADepositor,
+    #[msg("The requested withdrawal amount exceeds the depositor's balance.")]
+    InvalidWithdrawalAmount,
+    #[msg("The vault does not have sufficient liquidity to cover the withdrawal.")]
+    InsufficientVaultLiquidity,
     #[msg("Insufficient balance for the operation.")]
     InsufficientBalance,
     MathError,
     InsufficientRemainingBalance,
+    #[msg("The deposit reduces the vault manager's share below the minimum threshold.")]
+    VaultManagerShareTooLow,
+    #[msg("Invalid vault for the investor.")]
+    InvalidVault,
 }
