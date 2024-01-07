@@ -30,21 +30,21 @@ pub mod trading_vaults {
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         let investor = &mut ctx.accounts.investor;
-
+    
         // Ensure the investor is depositing into the correct vault
         if investor.fund_pubkey != vault.to_account_info().key() {
             return Err(ErrorCode::InvalidVault.into());
         }
-
+    
         // Calculate the new total deposit amount including this deposit
         let new_total_deposit = vault
             .total_deposits
             .checked_add(amount)
             .ok_or(ErrorCode::MathError)?;
-
+    
         // Calculate the vault manager's share after this deposit
         let vault_manager_share = vault.manager_deposits as f64 / new_total_deposit as f64;
-
+    
         if vault_manager_share < 0.10 {
             // If the deposit reduces the vault manager's share below 10%, void the deposit
             investor.investment_status = InvestmentStatus::VoidedDeposit;
@@ -59,19 +59,23 @@ pub mod trading_vaults {
             let cpi_context =
                 CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
             token::transfer(cpi_context, amount)?;
-
+    
             // Accept the deposit
             vault.total_deposits = new_total_deposit;
-            investor.amount = investor
-                .amount
-                .checked_add(amount)
-                .ok_or(ErrorCode::MathError)?;
+            if investor.is_initialized {
+                // If the investor is already initialized, update the investment amount
+                investor.update_investment_amount(amount);
+            } else {
+                // For a new investor, set the amount and mark as initialized
+                investor.amount = amount;
+                investor.is_initialized = true;
+            }
             investor.investment_status = InvestmentStatus::ActiveDeposit;
         }
-
+    
         Ok(())
     }
-
+    
     pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         let investor = &mut ctx.accounts.investor;
