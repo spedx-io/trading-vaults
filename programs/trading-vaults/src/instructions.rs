@@ -42,6 +42,15 @@ pub mod trading_vaults {
             investor.investment_status = InvestmentStatus::VoidedDeposit;
             return Err(ErrorCode::VaultManagerShareTooLow.into());
         } else {
+            // Process the SPL token transfer from the investor to the vault
+            let cpi_accounts = Transfer {
+                from: investor.to_account_info(),
+                to: vault.to_account_info(),
+                authority: ctx.accounts.owner.to_account_info(),
+            };
+            let cpi_context = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
+            token::transfer(cpi_context, amount)?;
+    
             // Accept the deposit
             vault.total_deposits = new_total_deposit;
             investor.amount = investor.amount.checked_add(amount).ok_or(ErrorCode::MathError)?;
@@ -49,8 +58,7 @@ pub mod trading_vaults {
         }
     
         Ok(())
-    }
-    
+    }        
 
     pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
@@ -117,6 +125,8 @@ pub struct Deposit<'info> {
     pub investor: Account<'info, Investor>,
     #[account(mut)]
     pub owner: Signer<'info>,
+    #[account(address = token::ID)]
+    pub token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]
